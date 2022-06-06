@@ -35,5 +35,5 @@ docker run hello-world # This should work without sudo now
 ```
 
 ### Run
-- `./run.sh` to build the binary and run the network of nodes. Define the number of nodes in the netwo  rk in the .env file. By default this creates 75 nodes in a fully connected mesh network and attempts to create and share 225 dealings between every node. Run while `htop` is running in another tab. Notice that when the dealings begin, processor usage is at 100%, then at some point it will suddenly die to 0% CPU usage and eventually kick back up to 100% usage until it completes. Example during a run where CPU usage has gone to 0%:
+- `./run.sh` to build the binary and run the network of nodes. Define the number of nodes in the network in the .env file. By default this creates 75 nodes in a fully connected mesh network and attempts to create and share 225 dealings between every node. Run `htop` in another tab. Notice that when the dealings begin, processor usage is at 100%, then at some point it will suddenly die to 0% CPU usage and eventually kick back up to 100% usage until it completes. Example during a run where CPU usage has gone to 0%:
 ![no-cpu-example](example.png)
