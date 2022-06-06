@@ -35,7 +35,8 @@ do
 done
 
 # Add peers
-let expected_connections="$TOTAL_NODES * ($TOTAL_NODES - 1) / 2"
+#let expected_connections="$TOTAL_NODES * ($TOTAL_NODES - 1) / 2"
+let expected_connections="$TOTAL_NODES * $TOTAL_NODES"
 until [ $(wc -l < all_peers_added.debug.txt) == $TOTAL_NODES ]
 do
     current_peer_connections=$(wc -l < added_peer.debug.txt)

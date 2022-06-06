@@ -1,6 +1,5 @@
 // System
 use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, RwLock, RwLockWriteGuard};
 
 // Third Party
 use backoff::{future::retry, ExponentialBackoff};
@@ -12,7 +11,7 @@ use tonic::Code;
 use tonic::{Request, Response, Status};
 
 // Local
-use super::peer::Peer;
+use super::peer::{Peer, PeerMap};
 use super::types::{DealingValue, NodeIndex, ProtocolRoundIndex, PublicKey};
 use super::utils;
 use crate::node_setup::NodeSetup;
@@ -22,9 +21,6 @@ use crate::sample::{
     AddPeerRequest, Dealing, HealthRequest, HealthResponse, IteratePeersRequest, PeerResponse,
     SharingRequest, SharingResponse,
 };
-
-type PublicKeyBytes = Vec<u8>;
-type PeerMap = Arc<RwLock<BTreeMap<PublicKeyBytes, Peer>>>;
 
 // Our gRPC server
 pub struct MySample {
@@ -39,7 +35,7 @@ pub struct MySample {
 impl MySample {
     pub fn new(node_count: u32, hostname: String) -> Self {
         let node_setup = NodeSetup::new(node_count).unwrap();
-        let peers: PeerMap = Arc::new(RwLock::new(BTreeMap::new()));
+        let peers = PeerMap::new();
 
         // Add myself to the peers map so that all dealings can be conveniently iterated.
         let self_peer: Peer = Peer {
@@ -50,10 +46,7 @@ impl MySample {
             client_dealing_sender: None,
             random_dealings: BTreeMap::new(),
         };
-        peers
-            .write()
-            .unwrap()
-            .insert(node_setup.public_key.clone(), self_peer);
+        peers.add_peer(self_peer);
 
         // inbound_dealing_channel
         // Aggregate all inbound dealings
@@ -66,10 +59,8 @@ impl MySample {
         ) = broadcast::channel(1000);
         let node_setup_to_move = node_setup.clone();
         tokio::spawn(async move {
-            let mut dealings_aggregator: HashMap<
-                ProtocolRoundIndex,
-                BTreeMap<PublicKeyBytes, Dealing>,
-            > = HashMap::new();
+            let mut dealings_aggregator: HashMap<ProtocolRoundIndex, BTreeMap<PublicKey, Dealing>> =
+                HashMap::new();
             loop {
                 let dealing: Dealing = inbound_dealing_receiver.recv().await.unwrap();
                 utils::debug_line_to_file("Received.", "inbound_dealing_received.debug.txt");
@@ -97,30 +88,6 @@ impl MySample {
             _hostname: hostname,
             inbound_dealing_sender,
         }
-    }
-
-    fn peer_sanity_checks(
-        peers: &RwLockWriteGuard<BTreeMap<PublicKeyBytes, Peer>>,
-    ) -> Result<(), Status> {
-        // Don't add the peer if it's already there
-        let public_keys: Vec<PublicKeyBytes> =
-            peers.iter().map(|(_, v)| v.public_key.clone()).collect();
-        if !utils::has_unique_elements(public_keys) {
-            println!("There is a duplicate public key in my peers!");
-            return Err(Status::new(
-                Code::Aborted,
-                "There is a duplicate public key in my peers!",
-            ));
-        }
-        let addresses: Vec<String> = peers.iter().map(|(_, v)| v.address.clone()).collect();
-        if !utils::has_unique_elements(addresses) {
-            println!("There is a duplicate address in my peers!");
-            return Err(Status::new(
-                Code::Aborted,
-                "There is a duplicate address in my peers!",
-            ));
-        }
-        Ok(())
     }
 
     // Produce one random dealing from this node to all of my peers
@@ -157,7 +124,7 @@ impl MySample {
     // This should be called only inside a tokio::task::spawn_blocking because it does some computationally
     // expensive work
     fn handle_received_dealings(
-        dealings: &BTreeMap<PublicKeyBytes, Dealing>,
+        dealings: &BTreeMap<PublicKey, Dealing>,
         node_count: u32,
         _node_setup: &NodeSetup,
     ) {
@@ -190,13 +157,7 @@ impl Sample for MySample {
         &self,
         _request: Request<SharingRequest>,
     ) -> Result<Response<SharingResponse>, Status> {
-        let public_keys: Vec<PublicKey> = self
-            .peers
-            .read()
-            .unwrap()
-            .iter()
-            .map(|(_, v)| v.public_key.clone())
-            .collect();
+        let public_keys: Vec<PublicKey> = self.peers.public_keys();
         for _ in 0..=2 {
             // Create key, kappa, and lambda
             // create new dealings and queue them for broadcast
@@ -205,11 +166,7 @@ impl Sample for MySample {
             let node_count = self.node_count;
             let my_node_index = self
                 .peers
-                .read()
-                .unwrap()
-                .iter()
-                .position(|(public_key, _)| public_key == &node_setup.public_key.clone())
-                .unwrap();
+                .index_of_public_key(node_setup.public_key.clone());
             let public_keys = public_keys.clone();
             let peers = self.peers.clone();
             let inbound_dealing_sender = self.inbound_dealing_sender.clone();
@@ -229,25 +186,28 @@ impl Sample for MySample {
                 inbound_dealing_sender
                     .send(dealing_message.clone())
                     .unwrap();
-                for (_, peer) in peers.read().unwrap().iter() {
-                    // I already have my dealing. Send the new dealing across all peer streams
-                    if peer.public_key != node_setup.public_key.clone() {
-                        #[allow(clippy::option_if_let_else)]
-                        if let Some(client_dealing_sender) = peer.client_dealing_sender.clone() {
-                            client_dealing_sender
-                                .blocking_send(dealing_message.clone())
-                                .unwrap();
-                        } else if let Some(server_dealing_sender) =
-                            peer.server_dealing_sender.clone()
-                        {
-                            server_dealing_sender
-                                .blocking_send(Ok(dealing_message.clone()))
-                                .unwrap();
-                        } else {
-                            panic!("Nowhere to send a dealing to this peer");
+                peers.with_map(|peers| {
+                    for (_, peer) in peers.iter() {
+                        // I already have my dealing. Send the new dealing across all peer streams
+                        if peer.public_key != node_setup.public_key.clone() {
+                            #[allow(clippy::option_if_let_else)]
+                            if let Some(client_dealing_sender) = peer.client_dealing_sender.clone()
+                            {
+                                client_dealing_sender
+                                    .blocking_send(dealing_message.clone())
+                                    .unwrap();
+                            } else if let Some(server_dealing_sender) =
+                                peer.server_dealing_sender.clone()
+                            {
+                                server_dealing_sender
+                                    .blocking_send(Ok(dealing_message.clone()))
+                                    .unwrap();
+                            } else {
+                                panic!("Nowhere to send a dealing to this peer");
+                            }
                         }
                     }
-                }
+                });
             });
         }
 
@@ -273,13 +233,7 @@ impl Sample for MySample {
             .unwrap()
             .to_vec();
         //If I don't have this peer in my Peers, add it
-        if self
-            .peers
-            .read()
-            .unwrap()
-            .get(&peer_public_key.clone())
-            .is_none()
-        {
+        if !self.peers.contains_public_key(peer_public_key.clone()) {
             let new_peer: Peer = Peer {
                 address: request.remote_addr().unwrap().to_string(),
                 public_key: peer_public_key.clone(),
@@ -288,25 +242,15 @@ impl Sample for MySample {
                 client_dealing_sender: None,
                 random_dealings: BTreeMap::new(),
             };
-            self.peers
-                .write()
-                .unwrap()
-                .insert(peer_public_key.clone(), new_peer);
-            Self::peer_sanity_checks(&self.peers.clone().write().unwrap())?;
-            if self.peers.read().unwrap().len() == self.node_count as usize {
+            self.peers.add_peer(new_peer);
+            if self.peers.peers_count() == self.node_count as usize {
                 utils::debug_line_to_file("Done.", "all_peers_added.debug.txt");
             }
         }
         let mut streamer = request.into_inner();
         let (dealing_received_sender, dealing_received_receiver) = mpsc::channel(1000);
-        let peers = self.peers.clone();
-        {
-            if let Some(mut peer) = peers.write().unwrap().get_mut(&peer_public_key.clone()) {
-                peer.server_dealing_sender = Some(dealing_received_sender);
-            } else {
-                panic!("Attempted to create a receive_dealings stream for a peer I don't have!");
-            }
-        }
+        self.peers
+            .set_peer_server_dealing_sender(peer_public_key, dealing_received_sender);
         let inbound_dealing_sender = self.inbound_dealing_sender.clone();
         // server_dealing_channel
         // This channel handles server-side dealings sent from other peers
@@ -394,23 +338,11 @@ impl Sample for MySample {
         };
         // Don't add the peer if it's already there
         // Don't add the peer if it resolves to this node
-        {
-            let mut peers = self.peers.write().unwrap();
-            if !peers
-                .iter()
-                .map(|(_, v)| v.public_key.clone())
-                .any(|x| x == public_key.clone())
-                && self.node_setup.public_key != public_key
-            {
-                assert!(peers.get(&public_key.clone()).is_none());
-                peers.insert(public_key.clone(), new_peer);
-                let message = format!("{:?} added peer {:?}.", public_key.clone(), address);
-                utils::debug_line_to_file(&message, "added_peer.debug.txt");
-                Self::peer_sanity_checks(&peers)?;
-                if peers.len() == self.node_count as usize {
-                    utils::debug_line_to_file("Done.", "all_peers_added.debug.txt");
-                }
-            }
+        if self.node_setup.public_key != public_key {
+            self.peers.add_peer(new_peer);
+        }
+        if self.peers.peers_count() == self.node_count as usize {
+            utils::debug_line_to_file("Done.", "all_peers_added.debug.txt");
         }
 
         Ok(Response::new(PeerResponse {

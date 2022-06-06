@@ -16,7 +16,7 @@ pub struct NodeSetup {
     pub public_key: Vec<u8>,
     // See here for thread safe interior mutability: https://ricardomartins.cc/2016/06/25/interior-mutability-thread-safety
     // Cell and RefCell are interior mutability on a single thread only
-    pub protocol_round: Arc<RwLock<ProtocolRoundIndex>>,
+    protocol_round: Arc<RwLock<ProtocolRoundIndex>>,
 }
 
 impl NodeSetup {
