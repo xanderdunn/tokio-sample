@@ -1,8 +1,9 @@
 // System
 use std::collections::BTreeMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 // Third Party
+use parking_lot::RwLock;
 use tokio::sync::mpsc::Sender;
 use tonic::transport::Channel;
 use tonic::Status;
@@ -37,17 +38,17 @@ impl PeerMap {
     }
 
     pub fn peers_count(&self) -> usize {
-        let lock = self.inner.read().unwrap();
+        let lock = self.inner.read();
         return lock.len();
     }
 
     pub fn public_keys(&self) -> Vec<PublicKey> {
-        let lock = self.inner.read().unwrap();
+        let lock = self.inner.read();
         return lock.iter().map(|(_, v)| v.public_key.clone()).collect();
     }
 
     pub fn index_of_public_key(&self, public_key: PublicKey) -> NodeIndex {
-        let lock = self.inner.read().unwrap();
+        let lock = self.inner.read();
         return lock
             .iter()
             .position(|(peer_public_key, _)| peer_public_key == &public_key)
@@ -55,7 +56,7 @@ impl PeerMap {
     }
 
     pub fn contains_public_key(&self, public_key: PublicKey) -> bool {
-        let lock = self.inner.read().unwrap();
+        let lock = self.inner.read();
         return lock.get(&public_key.clone()).is_some();
     }
 
@@ -63,7 +64,7 @@ impl PeerMap {
     where
         F: FnOnce(&mut BTreeMap<PublicKey, Peer>) -> T,
     {
-        let mut lock = self.inner.write().unwrap();
+        let mut lock = self.inner.write();
         func(&mut *lock)
     }
 
@@ -72,7 +73,7 @@ impl PeerMap {
         peer_public_key: PublicKey,
         sender: Sender<Result<Dealing, Status>>,
     ) {
-        let mut lock = self.inner.write().unwrap();
+        let mut lock = self.inner.write();
         if let Some(mut peer) = lock.get_mut(&peer_public_key.clone()) {
             peer.server_dealing_sender = Some(sender);
         } else {
@@ -81,7 +82,7 @@ impl PeerMap {
     }
 
     pub fn add_peer(&self, new_peer: Peer) {
-        let mut lock = self.inner.write().unwrap();
+        let mut lock = self.inner.write();
         // Don't add the peer if it's already there
         let public_keys: Vec<PublicKey> = lock.iter().map(|(_, v)| v.public_key.clone()).collect();
         if !lock.contains_key(&new_peer.public_key) {

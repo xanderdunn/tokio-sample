@@ -3,7 +3,10 @@ use ring::{
     rand,
     signature::{self, KeyPair},
 };
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
+
+// Third Party
+use parking_lot::RwLock;
 
 // Local
 use super::types::ProtocolRoundIndex;
@@ -38,7 +41,7 @@ impl NodeSetup {
     }
 
     pub fn get_next_round(&self) -> ProtocolRoundIndex {
-        let mut round = self.protocol_round.write().unwrap();
+        let mut round = self.protocol_round.write();
         let current_round: ProtocolRoundIndex = *round;
         *round = current_round + 1; // increment for next round
         current_round
