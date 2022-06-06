@@ -1,0 +1,23 @@
+[package]
+name = "tokio_demo"
+version = "0.1.0"
+edition = "2021"
+description = "A minimal reproducing sample for some strange tokio/tonic CPU behavior."
+license = "No Rights Reserved"
+repository = "https://github.com/xanderdunn/tokio-sample"
+
+[dependencies]
+rand = ">=0.7"
+tonic = { version = ">=0.7.2", features = ["tls", "transport"] }
+tokio = { version = ">=1.19.1", features = ["full"] }
+prost = ">=0.10.3"
+prost-derive = ">=0.10.1"
+rustls = ">=0.20.6"
+tonic-reflection = ">=0.4.0"
+backoff = { version = ">=0.4.0", features = ["tokio"] }
+tokio-stream = { version = ">=0.1.8", features = ["sync"] }
+async-stream = ">=0.3.3"
+ring = ">=0.16.20"
+
+[build-dependencies]
+tonic-build = ">=0.7.2"

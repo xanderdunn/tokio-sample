@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package sample;
+
+service Sample {
+    rpc AddPeer (AddPeerRequest) returns (PeerResponse);
+    rpc IteratePeers (IteratePeersRequest) returns (PeerResponse);
+    rpc InitialDealing (SharingRequest) returns (SharingResponse);
+    rpc ReceiveDealings (stream Dealing) returns (stream Dealing);
+    rpc CheckHealth (HealthRequest) returns (HealthResponse);
+}
+
+// Ask a node to connect to over other node that's less than its node ID
+message IteratePeersRequest {
+    uint32 node_index = 1;
+}
+
+message AddPeerRequest {
+// data type and position of data
+    string address = 1; // Address at which to reach the peer, such as http://node_2:2323
+    bytes public_key = 2;
+}
+
+message Dealing {
+    bytes dealing = 1;
+    uint32 protocol_round = 2;
+    bytes public_key = 3;
+}
+
+message SignatureRequest {
+    string message = 1;
+}
+
+// return value
+message PeerResponse {
+    bool success = 1;
+    bytes public_key = 2;
+}
+
+message SharingResponse {
+    bool success = 1;
+    bytes public_key = 2;
+}
+
+message SharingRequest {
+}
+
+message HealthRequest {
+}
+
+message HealthResponse {
+    bool healthy = 1;
+    bytes public_key = 2;
+}

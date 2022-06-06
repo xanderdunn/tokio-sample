@@ -1,0 +1,51 @@
+version: "3.9"
+services:
+  node:
+    build:
+      context: ./
+      dockerfile: ./docker/Dockerfile
+    init: true
+    working_dir: /code
+    entrypoint: /code/docker/run_node.sh
+    deploy:
+      mode: replicated
+      replicas: ${NUM_REPLICAS}
+      #resources:
+        #limits:
+          #cpus: '0.50'
+          #memory: 500M
+    volumes:
+      - type: bind
+        source: ./
+        target: /code/
+    environment:
+      # Make sure replicas above is the same value
+      - TOTAL_NODES=${NUM_REPLICAS}
+    networks:
+      - mynet
+  runner:
+    build:
+      context: ./
+      dockerfile: ./docker/Dockerfile
+    init: true
+    container_name: runner
+    working_dir: /code
+    entrypoint: /code/docker/run_runner.sh
+    volumes:
+      - type: bind
+        source: ./
+        target: /code/
+    networks:
+      - mynet
+    environment:
+      # Make sure replicas above is the same value
+      - TOTAL_NODES=${NUM_REPLICAS}
+
+networks:
+  mynet:
+    name: mynet
+    enable_ipv6: true
+    ipam:
+      config:
+        - subnet: 2001:db8:a::/64
+          gateway: 2001:db8:a::1
