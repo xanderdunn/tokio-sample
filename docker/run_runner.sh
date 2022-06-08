@@ -13,6 +13,8 @@ touch added_peer.debug.txt
 touch opening_complete.debug.txt
 touch spawned_all_dealing_requests.debug.txt
 touch inbound_dealing_received.debug.txt
+touch dealing_created.debug.txt
+touch dealing_sent.debug.txt
 
 # Build the node binary
 echo "Debug build..."
@@ -58,10 +60,17 @@ done
 echo "All nodes finished spawning dealing requests."
 
 let expected_openings="3 * $TOTAL_NODES"
+let expected_sent="3 * $TOTAL_NODES * ($TOTAL_NODES - 1)"
 until [ $(wc -l < opening_complete.debug.txt) == $expected_openings ]
 do
     current_openings_complete=$(wc -l < opening_complete.debug.txt)
-    echo "$current_openings_complete / $expected_openings dealing rounds have completed..."
+    current_dealings_created=$(wc -l < dealing_created.debug.txt)
+    current_dealings_received=$(wc -l < inbound_dealing_received.debug.txt)
+    current_dealings_sent=$(wc -l < dealing_sent.debug.txt)
+    echo "$current_dealings_created / $expected_openings dealings have been created,
+    $current_dealings_sent / $expected_sent dealings have been sent,
+    $current_dealings_received / $expected_sent dealings have been received,
+    $current_openings_complete / $expected_openings dealing rounds have completed"
     sleep 1
 done
 current_openings_complete=$(wc -l < opening_complete.debug.txt)

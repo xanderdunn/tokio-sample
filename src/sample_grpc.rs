@@ -63,7 +63,6 @@ impl MySample {
                 HashMap::new();
             loop {
                 let dealing: Dealing = inbound_dealing_receiver.recv().await.unwrap();
-                utils::debug_line_to_file("Received.", "inbound_dealing_received.debug.txt");
                 let round_dealings = dealings_aggregator
                     .entry(dealing.clone().protocol_round as usize)
                     .or_insert_with(BTreeMap::new);
@@ -177,6 +176,7 @@ impl Sample for MySample {
                     my_node_index as u32,
                     node_count,
                 );
+                utils::debug_line_to_file("Created.", "dealing_created.debug.txt");
                 // Add the new key to myself
                 let dealing_message = Dealing {
                     dealing: dealing,
@@ -196,12 +196,14 @@ impl Sample for MySample {
                                 client_dealing_sender
                                     .blocking_send(dealing_message.clone())
                                     .unwrap();
+                                utils::debug_line_to_file("Sent.", "dealing_sent.debug.txt");
                             } else if let Some(server_dealing_sender) =
                                 peer.server_dealing_sender.clone()
                             {
                                 server_dealing_sender
                                     .blocking_send(Ok(dealing_message.clone()))
                                     .unwrap();
+                                utils::debug_line_to_file("Sent.", "dealing_sent.debug.txt");
                             } else {
                                 panic!("Nowhere to send a dealing to this peer");
                             }
@@ -260,6 +262,7 @@ impl Sample for MySample {
                     protocol_round: protocol_round as u32,
                     public_key,
                 };
+                utils::debug_line_to_file("Received.", "inbound_dealing_received.debug.txt");
                 inbound_dealing_sender.send(dealing).unwrap();
             }
         });
@@ -321,6 +324,7 @@ impl Sample for MySample {
                 .unwrap();
             let mut inbound = response.into_inner();
             while let Some(dealing) = inbound.message().await.unwrap() {
+                utils::debug_line_to_file("Received.", "inbound_dealing_received.debug.txt");
                 inbound_dealing_sender.send(dealing).unwrap();
             }
         });
