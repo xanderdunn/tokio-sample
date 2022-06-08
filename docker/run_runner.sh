@@ -15,6 +15,10 @@ touch spawned_all_dealing_requests.debug.txt
 touch inbound_dealing_received.debug.txt
 touch dealing_created.debug.txt
 touch dealing_sent.debug.txt
+touch client_sent.debug.txt
+touch server_sent.debug.txt
+touch client_received.debug.txt
+touch server_received.debug.txt
 
 # Build the node binary
 echo "Debug build..."
@@ -61,18 +65,32 @@ echo "All nodes finished spawning signature requests."
 
 let expected_openings="3 * $TOTAL_NODES"
 let expected_sent="3 * $TOTAL_NODES * ($TOTAL_NODES - 1)"
-until [ $(wc -l < opening_complete.debug.txt) == $expected_openings ]
-do
+let expected_on_one_side="$expected_sent / 2"
+print_dealings_stats () {
     current_openings_complete=$(wc -l < opening_complete.debug.txt)
     current_dealings_created=$(wc -l < dealing_created.debug.txt)
     current_dealings_received=$(wc -l < inbound_dealing_received.debug.txt)
     current_dealings_sent=$(wc -l < dealing_sent.debug.txt)
+    current_client_sent=$(wc -l < client_sent.debug.txt)
+    current_server_sent=$(wc -l < server_sent.debug.txt)
+    current_client_received=$(wc -l < client_received.debug.txt)
+    current_server_received=$(wc -l < server_received.debug.txt)
     echo "$current_dealings_created / $expected_openings signatures have been created,
-    $current_dealings_sent / $expected_sent signatures have been sent,
+    $current_client_sent / $expected_on_one_side signatures have been sent to client side,
+    $current_server_sent / $expected_on_one_side signatures have been sent to server side,
+    $current_dealings_sent / $expected_sent total signatures have been sent,
+    $current_client_received / $expected_on_one_side signatures have been received on client side,
+    $current_server_received / $expected_on_one_side signatures have been received on server side,
     $current_dealings_received / $expected_sent signatures have been received,
     $current_openings_complete / $expected_openings signature rounds have completed"
+}
+
+until [ $(wc -l < opening_complete.debug.txt) == $expected_openings ]
+do
+    print_dealings_stats
     sleep 1
 done
+print_dealings_stats
 current_openings_complete=$(wc -l < opening_complete.debug.txt)
 echo "$current_openings_complete / $expected_openings siganture rounds have completed."
 echo "All nodes have completed an initial opening."

@@ -33,6 +33,9 @@ do
     sleep 1
 done
 
-grpcurl -plaintext localhost:2323 sample.Sample/InitialDealing > /dev/null
+until grpcurl -plaintext localhost:2323 sample.Sample/InitialDealing > /dev/null
+do
+    sleep 1
+done
 
 wait $server_pid
