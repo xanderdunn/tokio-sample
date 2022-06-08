@@ -57,7 +57,7 @@ until [ $(wc -l < spawned_all_dealing_requests.debug.txt) == $TOTAL_NODES ]
 do
     sleep 1
 done
-echo "All nodes finished spawning dealing requests."
+echo "All nodes finished spawning signature requests."
 
 let expected_openings="3 * $TOTAL_NODES"
 let expected_sent="3 * $TOTAL_NODES * ($TOTAL_NODES - 1)"
@@ -67,20 +67,20 @@ do
     current_dealings_created=$(wc -l < dealing_created.debug.txt)
     current_dealings_received=$(wc -l < inbound_dealing_received.debug.txt)
     current_dealings_sent=$(wc -l < dealing_sent.debug.txt)
-    echo "$current_dealings_created / $expected_openings dealings have been created,
-    $current_dealings_sent / $expected_sent dealings have been sent,
-    $current_dealings_received / $expected_sent dealings have been received,
-    $current_openings_complete / $expected_openings dealing rounds have completed"
+    echo "$current_dealings_created / $expected_openings signatures have been created,
+    $current_dealings_sent / $expected_sent signatures have been sent,
+    $current_dealings_received / $expected_sent signatures have been received,
+    $current_openings_complete / $expected_openings signature rounds have completed"
     sleep 1
 done
 current_openings_complete=$(wc -l < opening_complete.debug.txt)
-echo "$current_openings_complete / $expected_openings dealing rounds have completed."
+echo "$current_openings_complete / $expected_openings siganture rounds have completed."
 echo "All nodes have completed an initial opening."
 
 # This is a check for a race condition where more than expected dealing openings happen
 sleep 5
 if [ $(wc -l < opening_complete.debug.txt) != $expected_openings ]; then
-    echo "More dealings than expected were prodcued!"
+    echo "More signatures than expected were prodcued!"
     exit 1
 fi
 

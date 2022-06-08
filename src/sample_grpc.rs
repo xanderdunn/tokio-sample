@@ -94,19 +94,13 @@ impl MySample {
         node_setup: &NodeSetup,
         _public_keys: &[PublicKey],
         _my_node_index: NodeIndex,
-        node_count: u32,
+        _node_count: u32,
     ) -> (DealingValue, ProtocolRoundIndex) {
-        // Simulate some computationally intensive work
         const MESSAGE: &[u8] = b"hello, world";
-        let mut sig: Vec<u8> = Vec::new();
-        for _ in 0..node_count {
-            for _ in 0..node_count {
-                let rng = rand::SystemRandom::new();
-                let pkcs8_bytes = signature::Ed25519KeyPair::generate_pkcs8(&rng).unwrap();
-                let key_pair = signature::Ed25519KeyPair::from_pkcs8(pkcs8_bytes.as_ref()).unwrap();
-                sig = key_pair.sign(MESSAGE).as_ref().to_vec();
-            }
-        }
+        let rng = rand::SystemRandom::new();
+        let pkcs8_bytes = signature::Ed25519KeyPair::generate_pkcs8(&rng).unwrap();
+        let key_pair = signature::Ed25519KeyPair::from_pkcs8(pkcs8_bytes.as_ref()).unwrap();
+        let sig = key_pair.sign(MESSAGE).as_ref().to_vec();
         let protocol_round = node_setup.get_next_round();
         (sig, protocol_round)
     }
@@ -134,17 +128,6 @@ impl MySample {
             .collect();
         let node_count = node_count as usize;
         assert!(dealings.len() == node_count);
-        // Simulate some computationally intensive work
-        const MESSAGE: &[u8] = b"hello, world";
-        let mut _sig: Vec<u8> = Vec::new();
-        for _ in 0..node_count {
-            for _ in 0..node_count {
-                let rng = rand::SystemRandom::new();
-                let pkcs8_bytes = signature::Ed25519KeyPair::generate_pkcs8(&rng).unwrap();
-                let key_pair = signature::Ed25519KeyPair::from_pkcs8(pkcs8_bytes.as_ref()).unwrap();
-                _sig = key_pair.sign(MESSAGE).as_ref().to_vec();
-            }
-        }
         utils::debug_line_to_file("Done.", "opening_complete.debug.txt");
     }
 }
