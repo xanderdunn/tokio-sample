@@ -37,11 +37,6 @@ impl PeerMap {
         PeerMap { inner }
     }
 
-    pub fn peers_count(&self) -> usize {
-        let lock = self.inner.read();
-        return lock.len();
-    }
-
     pub fn public_keys(&self) -> Vec<PublicKey> {
         let lock = self.inner.read();
         return lock.iter().map(|(_, v)| v.public_key.clone()).collect();
@@ -81,7 +76,7 @@ impl PeerMap {
         }
     }
 
-    pub fn add_peer(&self, new_peer: Peer) {
+    pub fn add_peer(&self, new_peer: Peer, node_count: u32) {
         let mut lock = self.inner.write();
         // Don't add the peer if it's already there
         let public_keys: Vec<PublicKey> = lock.iter().map(|(_, v)| v.public_key.clone()).collect();
@@ -96,6 +91,9 @@ impl PeerMap {
         let addresses: Vec<String> = lock.iter().map(|(_, v)| v.address.clone()).collect();
         if !utils::has_unique_elements(addresses) {
             panic!("There is a duplicate address in my peers!");
+        }
+        if lock.len() == node_count as usize {
+            utils::debug_line_to_file("Done.", "all_peers_added.debug.txt");
         }
     }
 }

@@ -46,7 +46,7 @@ impl MySample {
             client_dealing_sender: None,
             random_dealings: BTreeMap::new(),
         };
-        peers.add_peer(self_peer);
+        peers.add_peer(self_peer, node_count);
 
         // inbound_dealing_channel
         // Aggregate all inbound dealings
@@ -242,10 +242,7 @@ impl Sample for MySample {
                 client_dealing_sender: None,
                 random_dealings: BTreeMap::new(),
             };
-            self.peers.add_peer(new_peer);
-            if self.peers.peers_count() == self.node_count as usize {
-                utils::debug_line_to_file("Done.", "all_peers_added.debug.txt");
-            }
+            self.peers.add_peer(new_peer, self.node_count);
         }
         let mut streamer = request.into_inner();
         let (dealing_received_sender, dealing_received_receiver) = mpsc::channel(1000);
@@ -339,10 +336,7 @@ impl Sample for MySample {
         // Don't add the peer if it's already there
         // Don't add the peer if it resolves to this node
         if self.node_setup.public_key != public_key {
-            self.peers.add_peer(new_peer);
-        }
-        if self.peers.peers_count() == self.node_count as usize {
-            utils::debug_line_to_file("Done.", "all_peers_added.debug.txt");
+            self.peers.add_peer(new_peer, self.node_count);
         }
 
         Ok(Response::new(PeerResponse {
